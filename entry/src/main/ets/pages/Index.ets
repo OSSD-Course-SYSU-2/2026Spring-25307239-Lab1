@@ -10,22 +10,9 @@ struct RelativeCalculator {
     "回退", "清空"
   ];
 
-  // 定义双向基础关系映射
-  private getRelMap(): Record<string, string> {
-    return {
-      "爸爸": "子女",
-      "妈妈": "子女",
-      "儿子": "父母",
-      "女儿": "父母",
-      "姐姐": "弟弟妹妹",
-      "弟弟": "哥哥姐姐",
-      "丈夫": "妻子",
-      "妻子": "丈夫"
-    };
-  }
-
   build() {
     Column({ space: 15 }) {
+      // 显示当前关系链
       Text(this.relationList.length > 0
         ? "我 → " + this.relationList.join(" → ")
         : "当前关系：我")
@@ -35,13 +22,15 @@ struct RelativeCalculator {
         .textAlign(TextAlign.Center)
         .margin({ top: 20 });
 
+      // 显示计算结果
       Text(this.result)
-        .fontSize(26)
+        .fontSize(28)
         .fontColor('#E63946')
         .fontWeight(FontWeight.Bold)
         .height(80)
         .margin({ top: 10 });
 
+      // 按键网格
       Grid() {
         ForEach(this.buttons, (btn: string) => {
           GridItem() {
@@ -49,8 +38,12 @@ struct RelativeCalculator {
               .width('100%')
               .height(70)
               .fontSize(20)
-              .backgroundColor(btn === "回退" || btn === "清空" ? '#457B9D' : '#F1FAEE')
-              .fontColor(btn === "回退" || btn === "清空" ? '#fff' : '#000')
+              .backgroundColor(
+                btn === "回退" || btn === "清空" ? '#457B9D' : '#F1FAEE'
+              )
+              .fontColor(
+                btn === "回退" || btn === "清空" ? '#fff' : '#000'
+              )
               .onClick(() => this.onButtonClick(btn))
           }
         })
@@ -76,59 +69,62 @@ struct RelativeCalculator {
     if (btn === "回退") {
       if (this.relationList.length > 0) {
         this.relationList.pop();
-        this.calcSmartRel();
+        this.computeRelation();
       }
       return;
     }
     this.relationList.push(btn);
-    this.calcSmartRel();
+    this.computeRelation();
   }
 
-  // 智能闭环关系计算核心
-  calcSmartRel(): void {
+  computeRelation(): void {
     const path = this.relationList;
     if (path.length === 0) {
       this.result = "本人";
       return;
     }
 
-    // 逐级推导 + 闭环匹配
-    let finalName = this.getFinalRelation(path);
-    this.result = finalName;
-  }
-
-  // 核心：逐级逻辑推导，支持闭环
-  private getFinalRelation(path: string[]): string {
-    // 直接处理典型闭环案例
     const key = path.join("-");
+    let res = "可识别亲属";
 
-    // 你要的闭环例子
-    if (key === "爸爸-妈妈-女儿") return "姑姑 / 母亲";
-    if (key === "爸爸-妈妈-儿子") return "叔叔 / 伯伯 / 父亲";
-    if (key === "妈妈-爸爸-儿子") return "舅舅 / 母亲的哥哥";
-    if (key === "妈妈-爸爸-女儿") return "姨妈 / 母亲";
+    // 基础关系
+    if (key === "爸爸") res = "父亲";
+    else if (key === "妈妈") res = "母亲";
+    else if (key === "姐姐") res = "姐姐";
+    else if (key === "弟弟") res = "弟弟";
+    else if (key === "儿子") res = "儿子";
+    else if (key === "女儿") res = "女儿";
+    else if (key === "妻子") res = "妻子";
+    else if (key === "丈夫") res = "丈夫";
 
-    if (key === "姐姐-弟弟-爸爸") return "爸爸";
-    if (key === "弟弟-姐姐-妈妈") return "妈妈";
+    // 关键闭环关系
+    else if (key === "妈妈-丈夫") res = "父亲";
+    else if (key === "爸爸-妻子") res = "母亲";
+    else if (key === "姐姐-弟弟") res = "弟弟/哥哥";
+    else if (key === "弟弟-姐姐") res = "姐姐/妹妹";
+    else if (key === "儿子-父亲") res = "父亲/母亲";
+    else if (key === "女儿-母亲") res = "母亲/父亲";
 
-    if (key === "丈夫-妻子-爸爸") return "岳父";
-    if (key === "妻子-丈夫-妈妈") return "婆婆";
+    // 祖辈关系
+    else if (key === "爸爸-爸爸") res = "爷爷";
+    else if (key === "爸爸-妈妈") res = "奶奶";
+    else if (key === "妈妈-爸爸") res = "外公";
+    else if (key === "妈妈-妈妈") res = "外婆";
+    else if (key === "爸爸-爸爸-爸爸") res = "曾祖父";
+    else if (key === "爸爸-爸爸-爸爸-爸爸") res = "高祖父";
 
-    // 直系祖辈
-    if (key === "爸爸-爸爸") return "爷爷";
-    if (key === "爸爸-妈妈") return "奶奶";
-    if (key === "妈妈-爸爸") return "外公";
-    if (key === "妈妈-妈妈") return "外婆";
+    // 旁系亲戚
+    else if (key === "爸爸-弟弟") res = "叔叔/伯伯";
+    else if (key === "爸爸-姐姐") res = "姑姑";
+    else if (key === "妈妈-弟弟") res = "舅舅";
+    else if (key === "妈妈-姐姐") res = "姨妈";
 
-    // 子侄辈
-    if (key === "弟弟-儿子") return "侄子";
-    if (key === "姐姐-儿子") return "外甥";
+    // 姻亲
+    else if (key === "丈夫-爸爸") res = "公公";
+    else if (key === "丈夫-妈妈") res = "婆婆";
+    else if (key === "妻子-爸爸") res = "岳父";
+    else if (key === "妻子-妈妈") res = "岳母";
 
-    // 基础单层
-    if (path.length === 1) {
-      return path[0];
-    }
-
-    return "可识别亲属";
+    this.result = res;
   }
 }
